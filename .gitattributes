@@ -1,0 +1,10 @@
+# Normalización de fin de línea: los runners de Windows hacen checkout con
+# autocrlf y gofmt marca los \r como error de formato; los .go van siempre LF.
+* text=auto
+*.go text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
+*.yml text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.png binary

@@ -1,6 +1,6 @@
 module github.com/Parms221/claude-usage-widget
 
-go 1.26.4
+go 1.26.6
 
 require (
 	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
