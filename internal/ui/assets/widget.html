@@ -1,0 +1,653 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --accent: oklch(0.62 0.13 48);
+    --accent-2: oklch(0.72 0.10 78);
+    --accent-3: oklch(0.80 0.06 95);
+    --accent-4: rgba(255,255,255,0.35);
+    --green: oklch(0.72 0.14 145);
+
+    --panel-bg: rgba(43,43,43,0.80);
+    --panel-bg-solid: rgb(40,40,44);
+    --panel-border: rgba(255,255,255,0.09);
+    --pill-bg-solid: rgb(31,32,38);
+    --pill-hover: rgba(255,255,255,0.09);
+
+    --text: #f3f3f3;
+    --text-strong: #ffffff;
+    --sub: #9d9d9d;
+    --sub-2: #c9c9c9;
+    --sub-3: #8d8d8d;
+    --logo-ink: #1a1207;
+    --row-name: #e2e2e2;
+    --row-pct: #f0f0f0;
+    --bar-track: rgba(255,255,255,0.09);
+    --bar-track-2: rgba(255,255,255,0.10);
+    --mini-track: rgba(255,255,255,0.14);
+    --card-bg: rgba(255,255,255,0.045);
+    --card-border: rgba(255,255,255,0.06);
+    --menu-bg: rgb(50,50,55);
+    --menu-hover: rgba(255,255,255,0.08);
+    --divider: rgba(255,255,255,0.08);
+    --day-idle: rgba(255,255,255,0.20);
+    --dot-sep: rgba(255,255,255,0.25);
+    --link: #d9a06b;
+    --link-hover: #eab98c;
+    --pill-reset: #a5a5a5;
+    --warn: #e4b468;
+  }
+  body.theme-light {
+    --accent: oklch(0.58 0.14 48);
+    --accent-2: oklch(0.68 0.11 78);
+    --accent-3: oklch(0.78 0.07 95);
+    --accent-4: rgba(0,0,0,0.25);
+    --green: oklch(0.58 0.13 145);
+
+    --panel-bg: rgba(249,249,249,0.86);
+    --panel-bg-solid: rgb(246,246,248);
+    --panel-border: rgba(0,0,0,0.07);
+    --pill-bg-solid: rgb(237,239,243);
+    --pill-hover: rgba(0,0,0,0.07);
+
+    --text: #1a1a1a;
+    --text-strong: #16181b;
+    --sub: #5e5e5e;
+    --sub-2: #3c3c3c;
+    --sub-3: #6d6d6d;
+    --logo-ink: #fdf6ee;
+    --row-name: #2a2a2a;
+    --row-pct: #16181b;
+    --bar-track: rgba(0,0,0,0.08);
+    --bar-track-2: rgba(0,0,0,0.09);
+    --mini-track: rgba(0,0,0,0.12);
+    --card-bg: rgba(0,0,0,0.035);
+    --card-border: rgba(0,0,0,0.06);
+    --menu-bg: rgb(252,252,253);
+    --menu-hover: rgba(0,0,0,0.06);
+    --divider: rgba(0,0,0,0.08);
+    --day-idle: rgba(0,0,0,0.16);
+    --dot-sep: rgba(0,0,0,0.22);
+    --link: #a56a2e;
+    --link-hover: #8a5217;
+    --pill-reset: #5e5e5e;
+    --warn: #a97b23;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overflow: hidden; background: transparent; }
+  body {
+    font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+    color: var(--text);
+    user-select: none;
+    cursor: default;
+    width: max-content;
+  }
+  body.solid.collapsed { background: var(--pill-bg-solid); }
+  body.solid.expanded  { background: var(--panel-bg-solid); }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { color: var(--link-hover); }
+
+  /* ---------- pill ---------- */
+  /* Flat pill: no chrome of its own, it lives on the taskbar. Hover paints a
+     Win11-style subtle highlight; :active gives tap feedback. */
+  #pill {
+    display: none;
+    align-items: center;
+    gap: 9px;
+    height: 34px;
+    padding: 0 12px 0 9px;
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    width: max-content;
+    transition: background .12s ease, transform .09s ease;
+  }
+  #pill:hover, #pill.hover { background: var(--pill-hover); }
+  #pill:active, #pill.pressed { transform: scale(0.94); }
+  body.collapsed #pill { display: inline-flex; }
+  .logo {
+    width: 20px; height: 20px; border-radius: 5px;
+    background: var(--accent);
+    display: grid; place-items: center;
+    flex: none;
+  }
+  .spark { display: block; flex: none; }
+  .spark-pill { width: 18px; height: 18px; color: var(--accent); }
+  .spark-chip { width: 15px; height: 15px; color: var(--logo-ink); }
+  .pill-col { display: flex; flex-direction: column; gap: 2px; }
+  #pill-pct {
+    font-size: 11.5px; font-weight: 600; line-height: 1;
+    font-variant-numeric: tabular-nums; color: var(--text);
+  }
+  .mini-track {
+    width: 58px; height: 3px; border-radius: 99px;
+    background: var(--mini-track); overflow: hidden;
+  }
+  .mini-fill { height: 100%; border-radius: 99px; width: 0%; }
+  #pill-weekly .mini-fill { background: var(--accent); }
+  #pill-session .mini-fill { background: var(--green); }
+  #pill-reset { font-size: 11px; color: var(--pill-reset); padding-left: 2px; }
+
+  /* ---------- panel ---------- */
+  #panel {
+    display: none;
+    width: 408px;
+    padding: 18px;
+    border-radius: 12px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    flex-direction: column;
+    gap: 18px;
+    position: relative;
+  }
+  body.solid #panel { background: var(--panel-bg-solid); }
+  @keyframes flyin {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes flyout {
+    from { opacity: 1; transform: none; }
+    to   { opacity: 0; transform: translateY(10px) scale(0.98); }
+  }
+  body.expanded #panel { display: flex; animation: flyin .18s cubic-bezier(.2, .9, .3, 1); }
+  body.expanded #panel.closing { animation: flyout .15s ease-in forwards; }
+
+  .header { display: flex; align-items: center; gap: 10px; }
+  .header .logo { width: 26px; height: 26px; border-radius: 7px; font-size: 13px; }
+  .header-txt { display: flex; flex-direction: column; gap: 1px; }
+  .title { font-size: 14px; font-weight: 600; letter-spacing: 0.1px; color: var(--text); }
+  #plan { font-size: 11px; color: var(--sub); }
+  #menu-btn {
+    margin-left: auto; width: 26px; height: 26px; border-radius: 6px;
+    background: var(--card-bg); border: none;
+    display: grid; place-items: center;
+    font-size: 13px; color: var(--sub-2); cursor: pointer;
+    font-family: inherit;
+  }
+  #menu-btn:hover { background: var(--menu-hover); }
+
+  .weekly { display: flex; flex-direction: column; gap: 9px; }
+  .weekly-top { display: flex; align-items: baseline; gap: 8px; }
+  #weekly-pct {
+    font-size: 32px; font-weight: 650; line-height: 1;
+    letter-spacing: -0.5px; color: var(--text-strong);
+  }
+  .weekly-top span:last-child { font-size: 12px; color: var(--sub); }
+  .track {
+    height: 8px; border-radius: 99px; background: var(--bar-track); overflow: hidden;
+  }
+  .fill { height: 100%; border-radius: 99px; background: var(--accent); width: 0%; transition: width .5s ease; }
+  .weekly-meta { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--sub); }
+  .weekly-meta .sep { color: var(--dot-sep); }
+  #weekly-reset { margin-left: auto; color: var(--sub-2); }
+
+  .session {
+    display: flex; flex-direction: column; gap: 9px;
+    padding: 12px; border-radius: 9px;
+    background: var(--card-bg); border: 1px solid var(--card-border);
+  }
+  .session-top { display: flex; align-items: baseline; gap: 8px; }
+  .session-top .name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+  #session-used { font-size: 11.5px; color: var(--sub); }
+  #session-reset { margin-left: auto; font-size: 11.5px; color: var(--sub-2); font-variant-numeric: tabular-nums; }
+  .session .track { height: 6px; background: var(--bar-track-2); }
+  .session .fill { background: var(--green); }
+
+  .sect-head { display: flex; align-items: center; }
+  .sect-head .h {
+    font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--sub-3);
+  }
+  .sect-head .r { margin-left: auto; font-size: 11px; color: var(--sub); }
+
+  .models { display: flex; flex-direction: column; gap: 11px; }
+  #stacked {
+    display: flex; height: 12px; border-radius: 4px; overflow: hidden;
+    background: var(--bar-track); gap: 1px;
+  }
+  #stacked .seg { height: 100%; }
+  #stacked .free { display: grid; place-items: center; }
+  #stacked .free span { font-size: 9px; color: var(--sub-3); letter-spacing: 0.4px; }
+  #model-rows { display: flex; flex-direction: column; gap: 7px; }
+  .mrow { display: grid; grid-template-columns: 10px 1fr auto auto; align-items: center; gap: 9px; }
+  .mrow .sw { width: 8px; height: 8px; border-radius: 2px; }
+  .mrow .nm { font-size: 12.5px; color: var(--row-name); }
+  .mrow .tk { font-size: 11.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .mrow .pc { font-size: 11.5px; color: var(--row-pct); width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+  .empty-note { font-size: 11.5px; color: var(--sub); }
+
+  .days { display: flex; flex-direction: column; gap: 10px; }
+  #day-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 7px;
+    align-items: end; height: 68px;
+  }
+  .day { display: flex; flex-direction: column; align-items: center; gap: 6px; justify-content: flex-end; height: 100%; }
+  .day .bar { width: 100%; border-radius: 4px 4px 2px 2px; background: var(--day-idle); }
+  .day.today .bar { background: var(--accent); }
+  .day span { font-size: 10px; color: var(--sub-3); }
+
+  .footer {
+    display: flex; align-items: center; gap: 10px;
+    padding-top: 12px; border-top: 1px solid var(--divider);
+  }
+  .foot-status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--sub-2); }
+  #foot-dot { width: 7px; height: 7px; border-radius: 99px; background: var(--green); display: inline-block; flex: none; }
+  #foot-dot.off { background: var(--sub-3); }
+  #foot-dot.warn { background: var(--warn); }
+  #details-link { margin-left: auto; font-size: 12px; cursor: pointer; white-space: nowrap; }
+
+  /* ---------- menu ---------- */
+  #menu {
+    position: absolute; top: 46px; right: 14px; z-index: 10;
+    min-width: 190px; padding: 6px;
+    border-radius: 9px; background: var(--menu-bg);
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+    display: none; flex-direction: column; gap: 2px;
+  }
+  #menu.open { display: flex; }
+  .mi {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 9px; border-radius: 6px; font-size: 12px;
+    color: var(--text); cursor: pointer; border: none; background: none;
+    font-family: inherit; text-align: left; width: 100%;
+  }
+  .mi:hover { background: var(--menu-hover); }
+  .mi .chk { width: 14px; flex: none; color: var(--link); }
+  .mi-group { display: flex; gap: 4px; padding: 4px 9px 7px; }
+  .mi-group button {
+    flex: 1; padding: 4px 0; font-size: 11px; border-radius: 6px;
+    border: 1px solid var(--card-border); background: var(--card-bg);
+    color: var(--sub-2); cursor: pointer; font-family: inherit;
+  }
+  .mi-group button.on { background: var(--accent); color: var(--logo-ink); border-color: transparent; }
+  .menu-sep { height: 1px; background: var(--divider); margin: 4px 6px; }
+  .menu-label { font-size: 10.5px; color: var(--sub-3); padding: 6px 9px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+</style>
+</head>
+<body class="collapsed theme-dark solid">
+
+  <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="claude-spark" viewBox="0 0 24 24">
+      <path fill="currentColor" d="m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"/>
+    </symbol>
+  </svg>
+
+  <div id="pill">
+    <svg class="spark spark-pill" aria-hidden="true"><use href="#claude-spark"/></svg>
+    <div class="pill-col">
+      <span id="pill-pct">…</span>
+      <div class="mini-track" id="pill-weekly"><div class="mini-fill"></div></div>
+      <div class="mini-track" id="pill-session"><div class="mini-fill"></div></div>
+    </div>
+    <span id="pill-reset"></span>
+  </div>
+
+  <div id="panel">
+    <div class="header">
+      <div class="logo"><svg class="spark spark-chip" aria-hidden="true"><use href="#claude-spark"/></svg></div>
+      <div class="header-txt">
+        <div class="title">Uso de Claude</div>
+        <div id="plan">—</div>
+      </div>
+      <button id="menu-btn" title="Opciones">⋯</button>
+    </div>
+
+    <div class="weekly">
+      <div class="weekly-top">
+        <span id="weekly-pct">—%</span>
+        <span>del límite semanal</span>
+      </div>
+      <div class="track"><div class="fill" id="weekly-fill"></div></div>
+      <div class="weekly-meta">
+        <span id="weekly-used">—</span>
+        <span class="sep" id="weekly-sep">·</span>
+        <span id="weekly-limit"></span>
+        <span id="weekly-reset"></span>
+      </div>
+    </div>
+
+    <div class="session">
+      <div class="session-top">
+        <span class="name">Ventana de 5 h</span>
+        <span id="session-used"></span>
+        <span id="session-reset"></span>
+      </div>
+      <div class="track"><div class="fill" id="session-fill"></div></div>
+    </div>
+
+    <div class="models">
+      <div class="sect-head">
+        <div class="h">Por modelo</div>
+        <div class="r" style="color:var(--sub-3)">sobre el límite semanal</div>
+      </div>
+      <div id="stacked"></div>
+      <div id="model-rows"></div>
+    </div>
+
+    <div class="days">
+      <div class="sect-head">
+        <div class="h">Últimos 7 días</div>
+        <div class="r" id="streak"></div>
+      </div>
+      <div id="day-grid"></div>
+    </div>
+
+    <div class="footer">
+      <div class="foot-status">
+        <span id="foot-dot"></span>
+        <span id="foot-text">Cargando…</span>
+      </div>
+      <a id="details-link">Ver detalles</a>
+    </div>
+
+    <div id="menu">
+      <button class="mi" data-act="refresh"><span class="chk"></span>Actualizar ahora</button>
+      <div class="menu-label">Tema</div>
+      <div class="mi-group">
+        <button data-theme="auto">Auto</button>
+        <button data-theme="dark">Oscuro</button>
+        <button data-theme="light">Claro</button>
+      </div>
+      <button class="mi" data-act="autostart"><span class="chk" id="chk-autostart"></span>Iniciar con Windows</button>
+      <div class="menu-sep"></div>
+      <button class="mi" data-act="quit"><span class="chk"></span>Salir</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  // MODE: "pill" and "panel" are the two real windows (injected by the host);
+  // "single" is the standalone/browser preview with a local toggle.
+  var MODE = window.__MODE || "single";
+  var S = { vm: null, expanded: false, standalone: false };
+  var $ = function (id) { return document.getElementById(id); };
+
+  if (MODE === "panel") {
+    S.expanded = true;
+    document.body.classList.remove("collapsed");
+    document.body.classList.add("expanded");
+  }
+
+  // Model palette by rank, mirroring the design (dark / light resolved via CSS vars).
+  var MODEL_VARS = ["var(--accent)", "var(--accent-2)", "var(--accent-3)", "var(--accent-4)"];
+
+  function host(name) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    var fn = window[name];
+    if (typeof fn === "function") { try { fn.apply(null, args); } catch (e) {} return true; }
+    return false;
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function measure() {
+    var el = MODE === "pill" ? $("pill")
+      : MODE === "panel" ? $("panel")
+      : (S.expanded ? $("panel") : $("pill"));
+    // offsetWidth/Height ignore the fly-in/out transforms, unlike bounding rects.
+    host("hostSetBounds", el.offsetWidth, el.offsetHeight, S.expanded);
+  }
+  window.__remeasure = measure;
+
+  function render() {
+    var vm = S.vm;
+    if (!vm) return;
+    document.body.classList.toggle("theme-light", vm.theme === "light");
+    document.body.classList.toggle("theme-dark", vm.theme !== "light");
+    document.body.classList.toggle("solid", !vm.acrylic);
+
+    var loading = vm.status === "loading";
+    var authErr = vm.status === "auth";
+
+    // ---- pill ----
+    $("pill-pct").textContent = loading ? "…" : (authErr ? "!" : vm.sessionPct + "%");
+    $("pill-weekly").firstElementChild.style.width = (vm.weeklyPct || 0) + "%";
+    $("pill-session").firstElementChild.style.width = (vm.sessionPct || 0) + "%";
+    $("pill-reset").textContent = vm.sessionShort || "";
+
+    // ---- header ----
+    $("plan").textContent = vm.plan || "Claude";
+
+    // ---- weekly ----
+    $("weekly-pct").textContent = (loading || authErr ? "—" : vm.weeklyPct) + "%";
+    $("weekly-fill").style.width = (vm.weeklyPct || 0) + "%";
+    if (vm.tokensUsed) {
+      $("weekly-used").textContent = vm.tokensUsed + " tokens";
+      $("weekly-sep").style.display = vm.tokensLimit ? "" : "none";
+      $("weekly-limit").textContent = vm.tokensLimit ? "de " + vm.tokensLimit : "";
+    } else {
+      $("weekly-used").textContent = "esta semana (local)";
+      $("weekly-sep").style.display = "none";
+      $("weekly-limit").textContent = "";
+    }
+    $("weekly-reset").textContent = vm.resetLabel ? "Reset " + vm.resetLabel : "";
+
+    // ---- session ----
+    $("session-used").textContent = vm.sessionUsed ? vm.sessionUsed + " de 5 h" : "sin actividad";
+    $("session-reset").textContent = vm.sessionReset ? "se libera " + vm.sessionReset : "";
+    $("session-fill").style.width = (vm.sessionPct || 0) + "%";
+
+    // ---- models ----
+    var stacked = $("stacked");
+    var rows = $("model-rows");
+    var models = vm.models || [];
+    var segs = "";
+    for (var i = 0; i < models.length; i++) {
+      var w = Math.max(0.5, models[i].share);
+      segs += '<div class="seg" style="background:' + MODEL_VARS[Math.min(i, 3)] + ';width:' + w + '%"></div>';
+    }
+    segs += '<div class="free" style="width:' + Math.max(0, vm.freePct || 0) + '%"><span>libre</span></div>';
+    stacked.innerHTML = segs;
+    if (models.length) {
+      var html = "";
+      for (var j = 0; j < models.length; j++) {
+        var m = models[j];
+        html += '<div class="mrow">' +
+          '<span class="sw" style="background:' + MODEL_VARS[Math.min(j, 3)] + '"></span>' +
+          '<span class="nm">' + esc(m.name) + "</span>" +
+          '<span class="tk">' + esc(m.tokens) + "</span>" +
+          '<span class="pc">' + Math.round(m.share) + "%</span>" +
+          "</div>";
+      }
+      rows.innerHTML = html;
+    } else {
+      rows.innerHTML = '<div class="empty-note">Sin uso local esta semana.</div>';
+    }
+
+    // ---- days ----
+    var days = vm.days || [];
+    var dhtml = "";
+    for (var k = 0; k < days.length; k++) {
+      var d = days[k];
+      var h = d.hasUse ? Math.max(6, Math.round(d.rel * 0.52)) : 4;
+      dhtml += '<div class="day' + (d.today ? " today" : "") + '">' +
+        '<div class="bar" style="height:' + h + 'px"></div>' +
+        "<span>" + esc(d.label) + "</span></div>";
+    }
+    $("day-grid").innerHTML = dhtml;
+    $("streak").textContent = vm.streak || "";
+
+    // ---- footer ----
+    var dot = $("foot-dot");
+    var txt = $("foot-text");
+    dot.className = "";
+    if (authErr || vm.status === "error") {
+      dot.className = "warn";
+      txt.textContent = vm.statusMsg || "Error al actualizar";
+    } else if (loading) {
+      dot.className = "off";
+      txt.textContent = "Cargando…";
+    } else if (vm.sessionLive) {
+      txt.textContent = "Sesión activa · quedan " + vm.sessionLeft + " de la ventana";
+    } else {
+      dot.className = "off";
+      txt.textContent = "Sin actividad en la ventana actual";
+    }
+    dot.title = vm.updatedAt ? "Actualizado " + vm.updatedAt : "";
+
+    // ---- menu state ----
+    var btns = document.querySelectorAll("#menu [data-theme]");
+    for (var b = 0; b < btns.length; b++) {
+      btns[b].classList.toggle("on", btns[b].getAttribute("data-theme") === (vm.themeMode || "auto"));
+    }
+    $("chk-autostart").textContent = vm.autostart ? "✓" : "";
+
+    measure();
+  }
+
+  // Flat pill background: the host samples the real taskbar pixels and sends
+  // the color here so the pill window is indistinguishable from the bar.
+  function applyFlatBg() {
+    var flat = MODE === "pill" || (MODE === "single" && !S.expanded);
+    document.body.style.background = (flat && S.tbColor) ? S.tbColor : "";
+  }
+  window.__setTaskbarColor = function (c) { S.tbColor = c; applyFlatBg(); };
+
+  // Panel window animations. __panelShow restarts the fly-in each time the
+  // flyout opens; __panelHide plays the fly-out and then tells the host to
+  // park the window.
+  window.__panelShow = function () {
+    var p = $("panel");
+    p.classList.remove("closing");
+    p.style.animation = "none";
+    void p.offsetWidth;
+    p.style.animation = "";
+  };
+  window.__panelHide = function () {
+    var p = $("panel");
+    if (p.classList.contains("closing")) return;
+    p.classList.add("closing");
+    var done = false;
+    var fin = function () {
+      if (done) return;
+      done = true;
+      p.classList.remove("closing");
+      host("hostPanelHidden");
+    };
+    p.addEventListener("animationend", fin, { once: true });
+    setTimeout(fin, 240);
+  };
+
+  window.__update = function (vm) { S.vm = vm; render(); };
+  window.__setExpanded = function (b) {
+    S.expanded = !!b;
+    document.body.classList.toggle("expanded", S.expanded);
+    document.body.classList.toggle("collapsed", !S.expanded);
+    $("menu").classList.remove("open");
+    applyFlatBg();
+    render();
+    measure();
+  };
+
+  function toggle() {
+    if (S.standalone) { window.__setExpanded(!S.expanded); return; }
+    host("hostToggle");
+  }
+
+  // In pill mode the page must NEVER acquire focus: a focus grab would
+  // deactivate the open panel and eat the very click that toggles it.
+  // preventDefault on pointerdown stops Chromium from requesting focus.
+  if (MODE === "pill") {
+    document.addEventListener("pointerdown", function (e) { e.preventDefault(); }, true);
+  }
+  var pillEl = $("pill");
+  pillEl.addEventListener("pointerdown", function (e) {
+    if (e.button !== 0) return;
+    pillEl.classList.add("pressed");
+    setTimeout(function () { pillEl.classList.remove("pressed"); }, 200);
+    host("hostLog", "pill pointerdown");
+    toggle();
+  });
+  // Inside the Win11 taskbar the mouse arrives via the host's input overlay,
+  // not through the webview; these mirror hover/press state into the page.
+  window.__pillHover = function (b) { pillEl.classList.toggle("hover", !!b); };
+  window.__pillPress = function () {
+    pillEl.classList.add("pressed");
+    setTimeout(function () { pillEl.classList.remove("pressed"); }, 200);
+  };
+  $("menu-btn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    $("menu").classList.toggle("open");
+  });
+  document.addEventListener("click", function (e) {
+    if (!$("menu").contains(e.target) && e.target !== $("menu-btn")) {
+      $("menu").classList.remove("open");
+    }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      if ($("menu").classList.contains("open")) { $("menu").classList.remove("open"); }
+      else if (MODE === "panel") { host("hostPanelEsc"); }
+      else if (S.expanded) { toggle(); }
+    }
+  });
+  $("details-link").addEventListener("click", function () {
+    if (!host("hostOpenDetails")) { window.open("https://claude.ai/settings/usage"); }
+  });
+  $("menu").addEventListener("click", function (e) {
+    var t = e.target.closest ? e.target.closest("[data-act],[data-theme]") : null;
+    if (!t) return;
+    var theme = t.getAttribute("data-theme");
+    if (theme) {
+      if (S.standalone && S.vm) { S.vm.themeMode = theme; S.vm.theme = theme === "auto" ? "dark" : theme; render(); }
+      host("hostSetTheme", theme);
+      return;
+    }
+    var act = t.getAttribute("data-act");
+    $("menu").classList.remove("open");
+    if (act === "refresh") host("hostRefresh");
+    else if (act === "quit") host("hostQuit");
+    else if (act === "autostart") {
+      if (S.standalone && S.vm) { S.vm.autostart = !S.vm.autostart; render(); }
+      host("hostSetAutostart", !(S.vm && S.vm.autostart));
+    }
+  });
+
+  // Standalone preview (opened in a normal browser, no host bindings): render
+  // the same sample data the design mock used.
+  function bootStandalone() {
+    S.standalone = true;
+    var q = new URLSearchParams(location.search);
+    var sample = {
+      status: "ok", theme: q.get("theme") === "light" ? "light" : "dark", themeMode: "auto",
+      acrylic: false, autostart: true, plan: "Plan Max · 5x",
+      weeklyPct: 68, tokensUsed: "1,84 M", tokensLimit: "≈ 2,70 M",
+      resetLabel: "en 2 d 14 h", sessionShort: "3 h 12 m",
+      sessionPct: 56, sessionUsed: "2 h 48 min", sessionLeft: "3 h 12 min",
+      sessionReset: "17:44", sessionLive: true,
+      models: [
+        { name: "Opus 4.6", tokens: "1,14 M", share: 42 },
+        { name: "Sonnet 4.6", tokens: "620 K", share: 23 },
+        { name: "Haiku", tokens: "84 K", share: 3 }
+      ],
+      freePct: 32,
+      days: [12, 34, 28, 41, 19, 47, 31].map(function (v, i) {
+        return { label: ["J", "V", "S", "D", "L", "M", "M"][i], rel: v * 100 / 47, hasUse: true, today: i === 6 };
+      }),
+      streak: "Racha de 6 días", updatedAt: "14:32"
+    };
+    window.__setExpanded(q.get("state") !== "collapsed");
+    window.__update(sample);
+  }
+
+  window.addEventListener("load", function () {
+    if (typeof window.hostReady === "function") {
+      host("hostReady");
+    } else {
+      bootStandalone();
+    }
+  });
+})();
+</script>
+</body>
+</html>
