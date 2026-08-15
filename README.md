@@ -76,7 +76,7 @@ the usage request to Anthropic's API.
 ## Build & run
 
 ```powershell
-git clone https://github.com/<you>/claude-usage-widget
+git clone https://github.com/Parms221/claude-usage-widget.git
 cd claude-usage-widget
 .\build.ps1          # go vet + go build (windowed, stripped)
 .\ClaudeUsageWidget.exe

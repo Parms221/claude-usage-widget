@@ -75,7 +75,7 @@ ningún lado salvo la consulta de uso al API de Anthropic.
 ## Compilar y ejecutar
 
 ```powershell
-git clone https://github.com/<tu-usuario>/claude-usage-widget
+git clone https://github.com/Parms221/claude-usage-widget.git
 cd claude-usage-widget
 .\build.ps1          # go vet + go build (ventana, sin consola)
 .\ClaudeUsageWidget.exe

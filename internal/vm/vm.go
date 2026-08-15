@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"claude-usage-widget/internal/api"
-	"claude-usage-widget/internal/history"
+	"github.com/Parms221/claude-usage-widget/internal/api"
+	"github.com/Parms221/claude-usage-widget/internal/history"
 )
 
 // Model is one row of the "Por modelo" section.

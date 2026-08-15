@@ -16,13 +16,13 @@ import (
 	"sync"
 	"time"
 
-	"claude-usage-widget/internal/api"
-	"claude-usage-widget/internal/auth"
-	"claude-usage-widget/internal/config"
-	"claude-usage-widget/internal/history"
-	"claude-usage-widget/internal/ui"
-	"claude-usage-widget/internal/vm"
-	"claude-usage-widget/internal/winutil"
+	"github.com/Parms221/claude-usage-widget/internal/api"
+	"github.com/Parms221/claude-usage-widget/internal/auth"
+	"github.com/Parms221/claude-usage-widget/internal/config"
+	"github.com/Parms221/claude-usage-widget/internal/history"
+	"github.com/Parms221/claude-usage-widget/internal/ui"
+	"github.com/Parms221/claude-usage-widget/internal/vm"
+	"github.com/Parms221/claude-usage-widget/internal/winutil"
 )
 
 const appName = "ClaudeUsageWidget"

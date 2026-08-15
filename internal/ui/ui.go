@@ -23,8 +23,8 @@ import (
 	webview2 "github.com/jchv/go-webview2"
 	"github.com/jchv/go-webview2/pkg/edge"
 
-	"claude-usage-widget/internal/config"
-	"claude-usage-widget/internal/winutil"
+	"github.com/Parms221/claude-usage-widget/internal/config"
+	"github.com/Parms221/claude-usage-widget/internal/winutil"
 )
 
 //go:embed assets/widget.html

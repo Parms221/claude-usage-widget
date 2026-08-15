@@ -1,4 +1,4 @@
-module claude-usage-widget
+module github.com/Parms221/claude-usage-widget
 
 go 1.26.4
 
