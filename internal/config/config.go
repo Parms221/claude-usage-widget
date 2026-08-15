@@ -60,13 +60,20 @@ func path() string { return filepath.Join(Dir(), "config.json") }
 // Load reads config.json, filling gaps with defaults. First run writes the
 // default file so users can discover the knobs.
 func Load() *Config {
-	cfg := defaults()
 	data, err := os.ReadFile(path())
 	if err != nil {
-		c := cfg
+		c := defaults()
 		_ = c.Save()
 		return &c
 	}
+	cfg := decode(data)
+	return &cfg
+}
+
+// decode parses config bytes tolerantly: UTF-8 BOM, unknown or missing
+// fields, and out-of-range values all degrade to safe defaults.
+func decode(data []byte) Config {
+	cfg := defaults()
 	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF}) // editors love BOMs
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		cfg = defaults()
@@ -83,7 +90,7 @@ func Load() *Config {
 	if cfg.MarginX < 0 {
 		cfg.MarginX = 0
 	}
-	return &cfg
+	return cfg
 }
 
 // Save writes the config atomically enough for our purposes.

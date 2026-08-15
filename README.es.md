@@ -8,6 +8,8 @@ estás mirando.**
 
 [English](README.md)
 
+[![CI](https://github.com/Parms221/claude-usage-widget/actions/workflows/ci.yml/badge.svg)](https://github.com/Parms221/claude-usage-widget/actions/workflows/ci.yml)
+[![Security](https://github.com/Parms221/claude-usage-widget/actions/workflows/security.yml/badge.svg)](https://github.com/Parms221/claude-usage-widget/actions/workflows/security.yml)
 ![Windows 11](https://img.shields.io/badge/Windows%2011-widget-0078D4?logo=windows11&logoColor=white)
 ![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)
 ![No CGo](https://img.shields.io/badge/CGo-ninguno-success)

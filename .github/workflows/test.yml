@@ -1,0 +1,55 @@
+# Suite de tests reusable (la llaman ci.yml y release.yml; también se puede
+# correr suelta desde la pestaña Actions).
+#
+# Todo corre en windows-latest: el proyecto es Windows-only (varios paquetes
+# llevan //go:build windows) y en Linux ni siquiera compila completo. El
+# runner trae MinGW, que -race necesita (el detector de carreras usa cgo).
+
+name: Test
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Suite (Go, Windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Formato (gofmt)
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then
+            echo "Archivos sin formatear:"
+            echo "$out"
+            exit 1
+          fi
+
+      # -unsafeptr=false: los callbacks Win32 (hook CBT / wndproc) convierten
+      # uintptr→unsafe.Pointer sobre punteros que provee el propio SO; es el
+      # patrón estándar y vet lo marca como falso positivo.
+      - name: go vet
+        run: go vet -unsafeptr=false ./...
+
+      - name: go.mod sin drift
+        run: go mod tidy -diff
+
+      - name: Tests (con -race)
+        env:
+          CGO_ENABLED: '1' # sólo para el detector de carreras; el build de producción va sin cgo
+        run: go test -race ./...

@@ -46,6 +46,10 @@ type Scanner struct {
 	mu    sync.Mutex
 	cache map[string]*fileAgg
 	seen  map[string]struct{} // cross-file message dedup, keys owned per file
+
+	// Root overrides the transcripts directory (tests); empty means
+	// ~/.claude/projects.
+	Root string
 }
 
 func NewScanner() *Scanner {
@@ -74,11 +78,14 @@ var usageMarker = []byte(`"usage"`)
 // Scan walks the projects dir and returns aggregated stats.
 // weekStart bounds the per-model totals; historyDays bounds the file scan.
 func (s *Scanner) Scan(weekStart time.Time, historyDays int) (*Stats, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
+	root := s.Root
+	if root == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, err
+		}
+		root = filepath.Join(home, ".claude", "projects")
 	}
-	root := filepath.Join(home, ".claude", "projects")
 	cutoff := time.Now().AddDate(0, 0, -historyDays)
 
 	s.mu.Lock()

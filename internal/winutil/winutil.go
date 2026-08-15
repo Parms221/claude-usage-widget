@@ -97,14 +97,14 @@ const (
 
 	WAInactive = 0
 
-	whCBT          = 5
-	hcbtCreateWnd  = 3
-	dwmwaDarkMode  = 20
-	dwmwaCorners   = 33
-	dwmwaBorder    = 34
-	dwmwaBackdrop  = 38
-	dwmcpRound     = 2
-	dwmColorNone   = 0xFFFFFFFE
+	whCBT           = 5
+	hcbtCreateWnd   = 3
+	dwmwaDarkMode   = 20
+	dwmwaCorners    = 33
+	dwmwaBorder     = 34
+	dwmwaBackdrop   = 38
+	dwmcpRound      = 2
+	dwmColorNone    = 0xFFFFFFFE
 	backdropAcrylic = 3 // DWMSBT_TRANSIENTWINDOW
 
 	abmGetTaskbarPos = 5

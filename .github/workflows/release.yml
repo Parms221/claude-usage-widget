@@ -1,0 +1,125 @@
+# Crea un release con el ejecutable adjunto.
+#
+# Dos caminos:
+#   1. Push de tag:  git tag v1.0.0 && git push origin v1.0.0
+#   2. Botón:        Actions → Release → Run workflow, indicando la versión
+#                    (el propio workflow crea el tag cuando la suite y el
+#                    build ya están en verde).
+#
+# En ambos casos: corre la suite completa (test.yml), compila el exe con los
+# flags de producción y deja un release en BORRADOR con el binario + su
+# sha256 y las notas generadas. Publicar el borrador es la decisión de
+# hacerlo visible en la página de releases. Un tag con guion (v1.2.3-rc.1)
+# se marca como pre-release.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión a lanzar (p. ej. v1.0.0 o v1.0.0-rc.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write # crear el release, subir assets (y el tag en el camino botón)
+
+# Un release a la vez por versión; no se cancela a mitad.
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  release:
+    name: Crear borrador con el exe
+    needs: test
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # En push de tag el checkout queda parado en el tag; en el camino botón,
+      # en el HEAD de la rama elegida (ese commit será el target del release).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Resolver y validar el tag
+        id: tag
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            TAG="$INPUT_VERSION"
+            if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?$'; then
+              echo "::error::Versión inválida: '$TAG' (formato: v1.2.3 o v1.2.3-rc.1)"
+              exit 1
+            fi
+            if gh api "repos/$REPO/git/ref/tags/$TAG" > /dev/null 2>&1; then
+              echo "::error::El tag $TAG ya existe; usa otra versión o pushea el tag directamente."
+              exit 1
+            fi
+          else
+            TAG="$REF_NAME"
+          fi
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "::error::Ya existe un release para $TAG."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build exe (windows/amd64, flags de producción)
+        env:
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags '-H windowsgui -s -w' -o ClaudeUsageWidget-windows-amd64.exe .
+
+      - name: Checksum
+        run: sha256sum ClaudeUsageWidget-windows-amd64.exe > ClaudeUsageWidget-windows-amd64.exe.sha256
+
+      # El tag se crea recién acá (build ya en verde) vía la API con
+      # GITHUB_TOKEN. Los eventos creados con GITHUB_TOKEN no disparan otros
+      # workflows, así que este paso no re-ejecuta Release.
+      - name: Crear el tag (camino botón)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: gh api "repos/$REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$SHA"
+
+      - name: Crear release en borrador (con el exe adjunto)
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          args=(--draft --generate-notes --title "$TAG")
+          case "$TAG" in
+            *-*) args+=(--prerelease) ;;
+          esac
+          url=$(gh release create "$TAG" \
+            ClaudeUsageWidget-windows-amd64.exe \
+            ClaudeUsageWidget-windows-amd64.exe.sha256 \
+            "${args[@]}")
+          {
+            echo "## Release $TAG (borrador)"
+            echo
+            echo "Exe adjunto y notas generadas. Publicarlo lo hace visible para todos:"
+            echo
+            echo "- $url"
+            echo "- o por CLI: \`gh release edit $TAG --draft=false\`"
+          } >> "$GITHUB_STEP_SUMMARY"

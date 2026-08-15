@@ -1,0 +1,48 @@
+# Integración continua: corre en cada push a master y en cada pull request.
+#
+# La suite de tests vive en test.yml (reusable, compartida con release.yml);
+# acá se suma el job build, que compila el binario con los mismos flags de
+# producción que usa el release (ventana sin consola, symbols fuera).
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+  pull_request:
+    branches: [master]
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE']
+
+permissions:
+  contents: read
+
+# En PRs, un push nuevo cancela la corrida anterior; en master nunca se cancela.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+jobs:
+  tests:
+    uses: ./.github/workflows/test.yml
+
+  build:
+    name: Build de producción
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build binario (flags de producción)
+        env:
+          CGO_ENABLED: '0'
+        run: go build -trimpath -ldflags '-H windowsgui -s -w' -o ClaudeUsageWidget.exe .
