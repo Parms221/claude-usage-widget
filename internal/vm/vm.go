@@ -31,8 +31,11 @@ type Day struct {
 
 // VM is pushed to the webview after every poll.
 type VM struct {
-	Status    string `json:"status"` // ok | loading | auth | error
+	Status    string `json:"status"` // ok | loading | auth | error | stale
 	StatusMsg string `json:"statusMsg,omitempty"`
+	// HasData tells the page whether the numbers below are real. Without it a
+	// cold start under a rate limit would render a confident "0 %".
+	HasData bool `json:"hasData"`
 
 	Theme     string `json:"theme"`     // resolved: dark | light
 	ThemeMode string `json:"themeMode"` // configured: auto | dark | light
@@ -79,11 +82,16 @@ func Build(in Inputs) *VM {
 	v := &VM{
 		Status:    in.Status,
 		StatusMsg: in.StatusMsg,
+		HasData:   in.Usage != nil,
 		ThemeMode: in.ThemeMode,
 		Acrylic:   in.Acrylic,
 		Autostart: in.Autostart,
 		Plan:      in.Plan,
-		UpdatedAt: now.Format("15:04"),
+	}
+	// The timestamp must describe the reading, not the render: with a stale
+	// view the page redraws every 30 s while the data can be hours old.
+	if in.Usage != nil && !in.Usage.FetchedAt.IsZero() {
+		v.UpdatedAt = in.Usage.FetchedAt.Local().Format("15:04")
 	}
 	switch in.ThemeMode {
 	case "dark":
@@ -109,13 +117,23 @@ func Build(in Inputs) *VM {
 
 func buildUsage(v *VM, u *api.Usage, now time.Time) {
 	if w := u.SevenDay; w != nil {
-		v.WeeklyPct = int(math.Round(w.Utilization))
-		if w.ResetsAt != nil {
-			v.ResetLabel = "en " + FmtDur(time.Until(*w.ResetsAt))
+		// A window whose reset time already passed has rolled over since the
+		// reading was taken: showing the old percentage would be a lie.
+		if expired(w, now) {
+			v.WeeklyPct = 0
+		} else {
+			v.WeeklyPct = int(math.Round(w.Utilization))
+			if w.ResetsAt != nil {
+				v.ResetLabel = "en " + FmtDur(time.Until(*w.ResetsAt))
+			}
 		}
 	}
 	if s := u.FiveHour; s != nil {
-		v.SessionPct = int(math.Round(s.Utilization))
+		if expired(s, now) {
+			v.SessionPct = 0
+		} else {
+			v.SessionPct = int(math.Round(s.Utilization))
+		}
 		if s.ResetsAt != nil && s.ResetsAt.After(now) {
 			left := time.Until(*s.ResetsAt)
 			if left > 5*time.Hour {
@@ -256,6 +274,15 @@ func isDigits(s string) bool {
 	}
 	return true
 }
+
+// expired reports whether a window's reset time is already in the past, which
+// happens when the reading comes from the cache or from a stale poll.
+func expired(b *api.Bucket, now time.Time) bool {
+	return b.ResetsAt != nil && !b.ResetsAt.After(now)
+}
+
+// FmtPct renders a utilization for the log: "12 %".
+func FmtPct(u float64) string { return fmt.Sprintf("%.0f %%", u) }
 
 // FmtTokens renders token counts the way the design does: "620 K", "1,84 M".
 func FmtTokens(n int64) string {

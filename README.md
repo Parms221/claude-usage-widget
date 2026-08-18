@@ -103,13 +103,15 @@ cd claude-usage-widget
 | `theme` | `auto` | `auto` follows Windows; `dark` / `light` pin it |
 | `overlayTaskbar` | `true` | Embed the pill in the taskbar; `false` floats it above the work area |
 | `marginX` | `16` | Left offset in logical pixels |
-| `pollSeconds` | `60` | Usage endpoint poll interval |
+| `pollSeconds` | `300` | Usage endpoint poll interval (clamped to 120 s minimum: the endpoint rate limits hard) |
 | `historyDays` | `15` | Transcript scan window (bounds the streak counter) |
 | `autoRefreshCli` | `true` | Allow `claude -p .` to renew an expired token |
 | `acrylic` | `true` | Native Win11 blur behind the panel |
 | `planLabel` | — | Override the plan caption in the header |
 
-Log file: `%APPDATA%\ClaudeUsageWidget\widget.log`.
+Log file: `%APPDATA%\ClaudeUsageWidget\widget.log` — appended across runs and rotated to `widget.log.1` past 512 KB.
+
+The last successful reading is cached in `%APPDATA%\ClaudeUsageWidget\usage-cache.json`, so a cold start shows real numbers (flagged as stale, with the reading time next to the plan) while the endpoint is unreachable or rate limited. On a 429 the widget backs off 5 → 10 → 20 → 40 → 60 minutes, honouring `Retry-After` when the server sends a usable one; retrying faster only renews the limit.
 
 ## Architecture
 

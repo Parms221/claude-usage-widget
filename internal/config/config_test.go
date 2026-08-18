@@ -30,8 +30,8 @@ func TestDecodeClampsValues(t *testing.T) {
 	if cfg.Theme != "auto" {
 		t.Errorf("Theme = %q, quiero auto", cfg.Theme)
 	}
-	if cfg.PollSeconds != 15 {
-		t.Errorf("PollSeconds = %d, quiero clamp a 15", cfg.PollSeconds)
+	if cfg.PollSeconds != MinPollSeconds {
+		t.Errorf("PollSeconds = %d, quiero clamp a %d", cfg.PollSeconds, MinPollSeconds)
 	}
 	if cfg.HistoryDays != 8 {
 		t.Errorf("HistoryDays = %d, quiero clamp a 8", cfg.HistoryDays)

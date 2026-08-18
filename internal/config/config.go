@@ -8,6 +8,14 @@ import (
 	"path/filepath"
 )
 
+const (
+	// DefaultPollSeconds keeps the widget well inside what the usage endpoint
+	// tolerates. Polling every minute earned a permanent 429.
+	DefaultPollSeconds = 300
+	// MinPollSeconds is the floor for a hand-edited config.json.
+	MinPollSeconds = 120
+)
+
 // Config holds the widget preferences. Every field has a sensible default so a
 // missing or partial config.json never breaks startup.
 type Config struct {
@@ -18,7 +26,9 @@ type Config struct {
 	OverlayTaskbar bool `json:"overlayTaskbar"`
 	// MarginX is the left offset of the pill/panel in logical pixels.
 	MarginX int `json:"marginX"`
-	// PollSeconds is the usage endpoint refresh interval.
+	// PollSeconds is the usage endpoint refresh interval. The endpoint rate
+	// limits aggressively (and a 429 keeps renewing itself while you retry),
+	// so anything under MinPollSeconds is clamped.
 	PollSeconds int `json:"pollSeconds"`
 	// HistoryDays controls how far back local JSONL transcripts are scanned
 	// (needed for the streak counter; 7-day stats always use the API window).
@@ -37,7 +47,7 @@ func defaults() Config {
 		Theme:          "auto",
 		OverlayTaskbar: true,
 		MarginX:        16,
-		PollSeconds:    60,
+		PollSeconds:    DefaultPollSeconds,
 		HistoryDays:    15,
 		AutoRefreshCLI: true,
 		Acrylic:        true,
@@ -81,8 +91,8 @@ func decode(data []byte) Config {
 	if cfg.Theme != "dark" && cfg.Theme != "light" {
 		cfg.Theme = "auto"
 	}
-	if cfg.PollSeconds < 15 {
-		cfg.PollSeconds = 15
+	if cfg.PollSeconds < MinPollSeconds {
+		cfg.PollSeconds = MinPollSeconds
 	}
 	if cfg.HistoryDays < 8 {
 		cfg.HistoryDays = 8

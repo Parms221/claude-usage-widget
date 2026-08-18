@@ -103,13 +103,15 @@ detallado.
 | `theme` | `auto` | `auto` sigue a Windows; `dark` / `light` lo fijan |
 | `overlayTaskbar` | `true` | Pastilla integrada en el taskbar; `false` la hace flotar sobre el área de trabajo |
 | `marginX` | `16` | Separación izquierda en px lógicos |
-| `pollSeconds` | `60` | Intervalo de consulta del endpoint |
+| `pollSeconds` | `300` | Intervalo de consulta del endpoint (mínimo 120 s: el endpoint limita con dureza) |
 | `historyDays` | `15` | Ventana de escaneo de transcripts (acota la racha) |
 | `autoRefreshCli` | `true` | Permite `claude -p .` para renovar token expirado |
 | `acrylic` | `true` | Acrílico nativo de Win11 tras el panel |
 | `planLabel` | — | Sobrescribe la etiqueta del plan |
 
-Log: `%APPDATA%\ClaudeUsageWidget\widget.log`.
+Log: `%APPDATA%\ClaudeUsageWidget\widget.log` — se añade entre ejecuciones y rota a `widget.log.1` al pasar de 512 KB.
+
+La última lectura correcta se guarda en `%APPDATA%\ClaudeUsageWidget\usage-cache.json`, así que un arranque en frío muestra números reales (marcados como desactualizados, con la hora de la lectura junto al plan) aunque el endpoint no responda o esté limitado. Ante un 429 el widget espacia los reintentos 5 → 10 → 20 → 40 → 60 minutos y respeta `Retry-After` cuando el servidor manda uno útil; reintentar antes solo renueva el límite.
 
 ## Arquitectura
 

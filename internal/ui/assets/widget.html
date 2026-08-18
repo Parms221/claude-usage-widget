@@ -162,6 +162,8 @@
   .header-txt { display: flex; flex-direction: column; gap: 1px; }
   .title { font-size: 14px; font-weight: 600; letter-spacing: 0.1px; color: var(--text); }
   #plan { font-size: 11px; color: var(--sub); }
+  .plan-row { display: flex; align-items: baseline; gap: 6px; }
+  #updated { font-size: 11px; color: var(--warn); }
   #menu-btn {
     margin-left: auto; width: 26px; height: 26px; border-radius: 6px;
     background: var(--card-bg); border: none;
@@ -292,7 +294,7 @@
       <div class="logo"><svg class="spark spark-chip" aria-hidden="true"><use href="#claude-spark"/></svg></div>
       <div class="header-txt">
         <div class="title">Uso de Claude</div>
-        <div id="plan">—</div>
+        <div class="plan-row"><span id="plan">—</span><span id="updated"></span></div>
       </div>
       <button id="menu-btn" title="Opciones">⋯</button>
     </div>
@@ -408,9 +410,16 @@
 
     var loading = vm.status === "loading";
     var authErr = vm.status === "auth";
+    // "stale" keeps the last good numbers on screen while the endpoint is
+    // unreachable or rate limited; only a cold failure has nothing to show.
+    var stale = vm.status === "stale";
+    var noData = !vm.hasData;
 
     // ---- pill ----
-    $("pill-pct").textContent = loading ? "…" : (authErr ? "!" : vm.sessionPct + "%");
+    $("pill-pct").textContent = loading ? "…"
+      : authErr ? "!"
+      : noData ? "—"
+      : vm.sessionPct + "%";
     $("pill-weekly").firstElementChild.style.width = (vm.weeklyPct || 0) + "%";
     $("pill-session").firstElementChild.style.width = (vm.sessionPct || 0) + "%";
     $("pill-reset").textContent = vm.sessionShort || "";
@@ -419,7 +428,7 @@
     $("plan").textContent = vm.plan || "Claude";
 
     // ---- weekly ----
-    $("weekly-pct").textContent = (loading || authErr ? "—" : vm.weeklyPct) + "%";
+    $("weekly-pct").textContent = (loading || authErr || noData) ? "—" : vm.weeklyPct + "%";
     $("weekly-fill").style.width = (vm.weeklyPct || 0) + "%";
     if (vm.tokensUsed) {
       $("weekly-used").textContent = vm.tokensUsed + " tokens";
@@ -481,9 +490,11 @@
     var dot = $("foot-dot");
     var txt = $("foot-text");
     dot.className = "";
-    if (authErr || vm.status === "error") {
+    if (authErr || vm.status === "error" || stale) {
       dot.className = "warn";
-      txt.textContent = vm.statusMsg || "Error al actualizar";
+      // Al arrancar desde la caché aún no hay motivo que contar: el primer
+      // sondeo llega en un segundo.
+      txt.textContent = vm.statusMsg || (stale ? "Actualizando…" : "Error al actualizar");
     } else if (loading) {
       dot.className = "off";
       txt.textContent = "Cargando…";
@@ -493,7 +504,10 @@
       dot.className = "off";
       txt.textContent = "Sin actividad en la ventana actual";
     }
-    dot.title = vm.updatedAt ? "Actualizado " + vm.updatedAt : "";
+    // While stale the timestamp is the whole point: say it out loud instead of
+    // hiding it in a tooltip nobody hovers.
+    dot.title = vm.updatedAt ? "Actualizado " + vm.updatedAt : "Sin datos todavía";
+    $("updated").textContent = (stale && vm.updatedAt) ? "datos de las " + vm.updatedAt : "";
 
     // ---- menu state ----
     var btns = document.querySelectorAll("#menu [data-theme]");
@@ -619,7 +633,8 @@
     S.standalone = true;
     var q = new URLSearchParams(location.search);
     var sample = {
-      status: "ok", theme: q.get("theme") === "light" ? "light" : "dark", themeMode: "auto",
+      status: "ok", hasData: true, updatedAt: "17:12",
+      theme: q.get("theme") === "light" ? "light" : "dark", themeMode: "auto",
       acrylic: false, autostart: true, plan: "Plan Max · 5x",
       weeklyPct: 68, tokensUsed: "1,84 M", tokensLimit: "≈ 2,70 M",
       resetLabel: "en 2 d 14 h", sessionShort: "3 h 12 m",
