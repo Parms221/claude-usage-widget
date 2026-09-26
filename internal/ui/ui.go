@@ -7,7 +7,9 @@
 // runs, and no topmost re-assertion is ever needed. If Explorer restarts, the
 // taskbar (and with it our pill) is destroyed; the panel — a normal top-level
 // window that also runs the message loop — receives the TaskbarCreated
-// broadcast and recreates the pill.
+// broadcast and recreates the pill. SetParent into the taskbar can also fail
+// or be undone while the shell is still starting after logon, so the
+// attachment is re-verified periodically; until it holds, the pill floats.
 package ui
 
 import (
@@ -55,12 +57,14 @@ type UI struct {
 	cfg   *config.Config
 	cb    Callbacks
 
-	attached   bool    // pill is parented into the taskbar
-	pillDead   bool    // pill window destroyed (Explorer went away)
-	overlay    uintptr // classic input relay over the pill (Win11 taskbar)
-	recreating bool
-	taskbarMsg uint32
-	debug      bool
+	attached    bool    // pill is parented into the taskbar
+	attachNote  string  // last logged attach outcome (retries log changes only)
+	pillDead    bool    // pill window destroyed (Explorer went away)
+	overlay     uintptr // classic input relay over the pill (Win11 taskbar)
+	recreating  bool
+	taskbarMsg  uint32
+	activateMsg uint32 // posted by a second launch of the exe
+	debug       bool
 
 	open        bool
 	pendingOpen bool
@@ -75,7 +79,13 @@ type UI struct {
 
 // New creates both windows; the pill is attached into the taskbar.
 func New(cfg *config.Config, cb Callbacks, debug bool) (*UI, error) {
-	u := &UI{cfg: cfg, cb: cb, taskbarMsg: winutil.TaskbarCreatedMessage(), debug: debug}
+	u := &UI{
+		cfg:         cfg,
+		cb:          cb,
+		taskbarMsg:  winutil.TaskbarCreatedMessage(),
+		activateMsg: winutil.ActivateMessage(),
+		debug:       debug,
+	}
 
 	var err error
 	if u.panel, err = u.mkView("panel", true, 420, 560, debug); err != nil {
@@ -113,6 +123,7 @@ func (u *UI) createPill(debug bool) error {
 	u.pill = v
 	u.pillDead = false
 	u.attached = false
+	u.attachNote = ""
 
 	winutil.MakeWidgetWindow(v.hwnd)
 	winutil.HideDWMBorder(v.hwnd)
@@ -139,7 +150,7 @@ func (u *UI) mkView(mode string, autofocus bool, width, height uint, debug bool)
 		AutoFocus: autofocus,
 		DataPath:  filepath.Join(config.Dir(), "webview-data"),
 		WindowOptions: webview2.WindowOptions{
-			Title:  "Claude Usage " + mode,
+			Title:  windowTitle(mode),
 			Width:  width,
 			Height: height,
 		},
@@ -152,16 +163,30 @@ func (u *UI) mkView(mode string, autofocus bool, width, height uint, debug bool)
 	return view{w: w, hwnd: uintptr(w.Window())}, nil
 }
 
+func windowTitle(mode string) string { return "Claude Usage " + mode }
+
+// NotifyRunning asks an already running widget to re-check its pill and open
+// the panel. Called by a second launch, which would otherwise exit silently
+// and look like "the app doesn't start".
+func NotifyRunning() bool {
+	return winutil.NotifyRunningInstance("webview", windowTitle("panel"), winutil.ActivateMessage())
+}
+
+// tryAttach parents the pill and its input overlay into the taskbar. When
+// that fails the pill stays a floating popup and ensureAttached retries.
 func (u *UI) tryAttach() {
 	if !u.cfg.OverlayTaskbar {
 		return
 	}
 	tb := winutil.FindTaskbar()
 	if tb == 0 {
-		log.Printf("ui: taskbar no encontrado; pastilla en modo flotante")
+		u.noteAttach("taskbar no encontrado; pastilla en modo flotante")
 		return
 	}
-	winutil.AttachToTaskbar(u.pill.hwnd, tb)
+	if err := winutil.AttachToTaskbar(u.pill.hwnd, tb); err != nil {
+		u.noteAttach(fmt.Sprintf("no se pudo integrar la pastilla al taskbar (%v); modo flotante, se reintentará", err))
+		return
+	}
 	u.attached = true
 	// The Win11 XAML taskbar swallows composition-pipeline input, so the
 	// embedded webview renders but never sees the mouse; the classic overlay
@@ -169,9 +194,54 @@ func (u *UI) tryAttach() {
 	winutil.DestroyOverlay(u.overlay)
 	var err error
 	if u.overlay, err = winutil.CreateInputOverlay(tb, u.onPillMouse); err != nil {
-		log.Printf("ui: overlay de input falló: %v", err)
+		u.noteAttach(fmt.Sprintf("pastilla integrada al taskbar, pero el overlay de input falló: %v", err))
+		return
 	}
-	log.Printf("ui: pastilla integrada al taskbar (overlay=%v)", u.overlay != 0)
+	u.noteAttach("pastilla integrada al taskbar (overlay=true)")
+}
+
+// noteAttach logs attach outcomes only when they change: ensureAttached keeps
+// retrying while the shell is unavailable and must not flood the log.
+func (u *UI) noteAttach(msg string) {
+	if msg != u.attachNote {
+		u.attachNote = msg
+		log.Printf("ui: %s", msg)
+	}
+}
+
+// ensureAttached verifies that the pill and its input overlay really live
+// inside the taskbar, and re-parents them when they don't. It reports whether
+// the pill must be placed again: a fresh overlay sits at 0,0 until placed,
+// and a pill that fell back to floating needs its popup position.
+func (u *UI) ensureAttached() (replace bool) {
+	if u.pillDead || u.recreating || !u.cfg.OverlayTaskbar {
+		return false
+	}
+	tb := winutil.FindTaskbar()
+	inside := u.attached && tb != 0 && winutil.ParentOf(u.pill.hwnd) == tb
+	if inside && u.overlay != 0 && winutil.ParentOf(u.overlay) == tb {
+		return false
+	}
+	wasAttached := u.attached
+	if wasAttached && !inside {
+		log.Printf("ui: la pastilla quedó fuera del taskbar (padre %#x, taskbar %#x); reintegrando",
+			winutil.ParentOf(u.pill.hwnd), tb)
+		u.attachNote = "" // log the outcome of the repair
+	}
+	u.attached = false
+	u.tryAttach()
+	// Still floating after another failed retry: already placed, nothing to do.
+	return u.attached || wasAttached
+}
+
+// EnsureAttached runs ensureAttached from any goroutine and re-places the
+// pill when needed. Cheap (a FindWindow and two GetAncestor calls).
+func (u *UI) EnsureAttached() {
+	u.panel.w.Dispatch(func() {
+		if u.ensureAttached() {
+			u.remeasure()
+		}
+	})
 }
 
 func (u *UI) onPillMouse(evt int) {
@@ -340,9 +410,7 @@ func (u *UI) placePill(wCSS, hCSS float64) {
 	h := int(math.Ceil(hCSS * scale))
 	margin := int(math.Round(float64(u.cfg.MarginX) * scale))
 
-	if !u.attached {
-		u.tryAttach()
-	}
+	u.ensureAttached() // never trust a stale "attached": an orphan is invisible
 	if u.attached {
 		tb := winutil.FindTaskbar()
 		if tb == 0 {
@@ -471,8 +539,23 @@ func (u *UI) panelMsg(msg uint32, wparam, lparam uintptr) (bool, uintptr) {
 			log.Printf("ui: TaskbarCreated recibido")
 			u.panel.w.Dispatch(u.rebuildPill)
 		}
+	case u.activateMsg:
+		if u.activateMsg != 0 {
+			log.Printf("ui: otra ejecución pidió mostrar el widget")
+			u.panel.w.Dispatch(u.showFromRelaunch)
+		}
 	}
 	return false, 0
+}
+
+// showFromRelaunch answers a second launch of the exe: make sure the pill is
+// back in the taskbar and open the panel as visible proof the widget runs.
+func (u *UI) showFromRelaunch() {
+	u.ensureAttached()
+	u.remeasure()
+	if !u.open {
+		u.openPanel()
+	}
 }
 
 // rebuildPill recreates the pill after Explorer restarted (or just re-attaches
@@ -498,6 +581,7 @@ func (u *UI) rebuildPill() {
 		return
 	}
 	u.attached = false
+	u.attachNote = ""
 	u.tryAttach()
 	u.remeasure()
 }

@@ -160,6 +160,7 @@ More implementation notes (the fun ones):
 | Pill shows `!` or "Inicia sesión" | Run `claude login`; the widget reads Claude Code's credentials |
 | "Límite de consultas · reintentando" | Endpoint rate limit (429); the widget backs off 5 min and recovers alone |
 | Widget didn't start at logon | Task Scheduler → `ClaudeUsageWidget` shows the last run result |
+| Pill missing from the taskbar | Launch the exe again: the running copy re-attaches its pill and opens the panel (it also re-checks by itself every 30 s) |
 | Anything else | `%APPDATA%\ClaudeUsageWidget\widget.log`, or run with `-debug` |
 
 ## Credits

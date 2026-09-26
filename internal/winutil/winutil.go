@@ -50,6 +50,10 @@ var (
 	procGetWindowRect                 = user32.NewProc("GetWindowRect")
 	procFindWindowW                   = user32.NewProc("FindWindowW")
 	procSetParent                     = user32.NewProc("SetParent")
+	procGetAncestor                   = user32.NewProc("GetAncestor")
+	procPostMessageW                  = user32.NewProc("PostMessageW")
+	procGetWindowThreadProcessId      = user32.NewProc("GetWindowThreadProcessId")
+	procAllowSetForegroundWindow      = user32.NewProc("AllowSetForegroundWindow")
 	procGetClientRect                 = user32.NewProc("GetClientRect")
 	procRegisterWindowMessageW        = user32.NewProc("RegisterWindowMessageW")
 	procRegisterClassExW              = user32.NewProc("RegisterClassExW")
@@ -425,16 +429,45 @@ func FindTaskbar() uintptr {
 	return h
 }
 
-// TaskbarCreatedMessage returns the broadcast message id Explorer sends to
-// top-level windows after it (re)creates the taskbar.
-func TaskbarCreatedMessage() uint32 {
-	s, _ := windows.UTF16PtrFromString("TaskbarCreated")
+func registerMessage(name string) uint32 {
+	s, _ := windows.UTF16PtrFromString(name)
 	m, _, _ := procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(s)))
 	return uint32(m)
 }
 
-// AttachToTaskbar turns the window into a WS_CHILD of the taskbar.
-func AttachToTaskbar(hwnd, taskbar uintptr) {
+// TaskbarCreatedMessage returns the broadcast message id Explorer sends to
+// top-level windows after it (re)creates the taskbar.
+func TaskbarCreatedMessage() uint32 { return registerMessage("TaskbarCreated") }
+
+// ActivateMessage is what a second launch of the exe posts to the running
+// instance: the user starting it again usually means "I can't see it".
+func ActivateMessage() uint32 { return registerMessage("ClaudeUsageWidget.Activate") }
+
+// NotifyRunningInstance posts msg to the top-level window with the given
+// class and title, and lets its process take the foreground (only the
+// process the user just launched holds that right). Reports whether the
+// window was found.
+func NotifyRunningInstance(class, title string, msg uint32) bool {
+	c, _ := windows.UTF16PtrFromString(class)
+	t, _ := windows.UTF16PtrFromString(title)
+	h, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(c)), uintptr(unsafe.Pointer(t)))
+	if h == 0 {
+		return false
+	}
+	var pid uint32
+	_, _, _ = procGetWindowThreadProcessId.Call(h, uintptr(unsafe.Pointer(&pid)))
+	_, _, _ = procAllowSetForegroundWindow.Call(uintptr(pid))
+	r, _, _ := procPostMessageW.Call(h, uintptr(msg), 0, 0)
+	return r != 0
+}
+
+// AttachToTaskbar turns the window into a WS_CHILD of the taskbar and reports
+// whether it really got there. SetParent into Explorer's window can fail (or
+// be undone) while the shell is still starting after logon, and a window left
+// with WS_CHILD under the desktop is an orphan: drawn at the screen's top-left
+// corner, behind every other window. On failure the window goes back to being
+// a plain top-level popup so the caller can float it and retry later.
+func AttachToTaskbar(hwnd, taskbar uintptr) error {
 	style, _, _ := procGetWindowLongPtrW.Call(hwnd, gwlStyle)
 	style &^= uintptr(wsPopup | wsCaption | wsThickFrame | wsSysMenu)
 	style |= uintptr(wsChild | wsVisible)
@@ -444,9 +477,35 @@ func AttachToTaskbar(hwnd, taskbar uintptr) {
 	ex &^= uintptr(wsExTopmost | wsExAppWindow)
 	_, _, _ = procSetWindowLongPtrW.Call(hwnd, gwlExStyle, ex)
 
-	_, _, _ = procSetParent.Call(hwnd, taskbar)
+	r, _, err := procSetParent.Call(hwnd, taskbar)
+	if ParentOf(hwnd) != taskbar {
+		detach(hwnd)
+		if r == 0 {
+			return errors.New("SetParent: " + err.Error())
+		}
+		return errors.New("SetParent no tuvo efecto")
+	}
 	_, _, _ = procSetWindowPos.Call(hwnd, 0 /* HWND_TOP */, 0, 0, 0, 0,
 		swpNoMove|swpNoSize|swpNoActivate|swpFrameChanged)
+	return nil
+}
+
+// detach turns hwnd back into a top-level popup. SetParent keeps WS_CHILD
+// when the new parent is the desktop, so the style is fixed by hand.
+func detach(hwnd uintptr) {
+	_, _, _ = procSetParent.Call(hwnd, 0)
+	style, _, _ := procGetWindowLongPtrW.Call(hwnd, gwlStyle)
+	style = style&^uintptr(wsChild) | uintptr(wsPopup)
+	_, _, _ = procSetWindowLongPtrW.Call(hwnd, gwlStyle, style)
+	_, _, _ = procSetWindowPos.Call(hwnd, 0, 0, 0, 0, 0,
+		swpNoMove|swpNoSize|swpNoZOrder|swpNoActivate|swpFrameChanged)
+}
+
+// ParentOf returns hwnd's real parent (GA_PARENT): the desktop window for a
+// top-level window, never its owner.
+func ParentOf(hwnd uintptr) uintptr {
+	p, _, _ := procGetAncestor.Call(hwnd, 1 /* GA_PARENT */)
+	return p
 }
 
 // SetChildBounds positions a child window (client coordinates of its parent)
@@ -586,7 +645,12 @@ func CreateInputOverlay(parent uintptr, onEvent func(int)) (uintptr, error) {
 	if h == 0 {
 		return 0, errors.New("CreateWindowEx: " + err.Error())
 	}
-	AttachToTaskbar(h, parent)
+	if err := AttachToTaskbar(h, parent); err != nil {
+		// An orphaned overlay would sit invisible at the screen's corner,
+		// still eating clicks there.
+		_, _, _ = procDestroyWindow.Call(h)
+		return 0, err
+	}
 	// Alpha 1/255: imperceptible but still hit-testable (alpha 0 would be
 	// click-through).
 	_, _, _ = procSetLayeredWindowAttributes.Call(h, 0, 1, lwaAlpha)
