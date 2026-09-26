@@ -73,7 +73,11 @@ func main() {
 	flag.Parse()
 
 	if !winutil.EnsureSingleInstance(appName) {
-		return // another copy is already running
+		// Another copy is already running. Starting the exe again usually
+		// means the user can't see it: ask that copy to show itself instead
+		// of exiting without a trace.
+		ui.NotifyRunning()
+		return
 	}
 	winutil.SetDPIAware()
 
@@ -235,9 +239,12 @@ func (a *app) pollLoop() {
 }
 
 // renderLoop refreshes the view from memory (no network) so the pill countdown
-// and the retry hint keep ticking between fetches.
+// and the retry hint keep ticking between fetches. It also re-checks that the
+// pill still lives inside the taskbar: Explorer can reject or undo the
+// SetParent while it starts, leaving the pill invisible.
 func (a *app) renderLoop() {
 	for range time.Tick(renderInterval) {
+		a.ui.EnsureAttached()
 		a.pushCurrent()
 	}
 }

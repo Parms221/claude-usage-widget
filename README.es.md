@@ -162,6 +162,7 @@ Notas de implementación (las divertidas):
 | La pastilla muestra `!` o "Inicia sesión" | Ejecuta `claude login`; el widget lee las credenciales de Claude Code |
 | "Límite de consultas · reintentando" | Rate limit del endpoint (429); el widget espera 5 min y se recupera solo |
 | No arrancó al iniciar sesión | Programador de tareas → `ClaudeUsageWidget` muestra el último resultado |
+| La pastilla no aparece en el taskbar | Vuelve a ejecutar el exe: la copia en marcha reintegra la pastilla y abre el panel (además lo revisa sola cada 30 s) |
 | Cualquier otra cosa | `%APPDATA%\ClaudeUsageWidget\widget.log`, o ejecuta con `-debug` |
 
 ## Créditos
